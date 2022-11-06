@@ -2,7 +2,7 @@ const express = require('express')
 const path = require('path')
 const app = express()
 const cors = require('cors')
-const port = 3000
+const PORT = process.env.PORT || 3000;
 
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
@@ -19,7 +19,7 @@ const pool = new Pool({
     host: 'localhost',
     database: 'ballers_2022',
     password: `${process.env.POSTGRESQL_BALLERS_DB_PASSWORD}`,
-    port: `${process.env.PORT}` || 8000,
+    port: 5432,
 })
 
 const client = new Client({
@@ -27,7 +27,7 @@ const client = new Client({
     host: 'localhost',
     database: 'ballers_2022',
     password: `${process.env.POSTGRESQL_BALLERS_DB_PASSWORD}`,
-    port: `${process.env.PORT}` || 8000,
+    port: 5432,
   })
   try {
     client.connect()
@@ -437,6 +437,6 @@ app.post('/api/register', async (req, res) => {
     res.json({status: 'ok'})
 })
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+app.listen(PORT, () => {
+  console.log(`Example app listening on port ${PORT}`)
 })
