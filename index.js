@@ -19,7 +19,7 @@ const pool = new Pool({
     host: 'localhost',
     database: 'ballers_2022',
     password: `${process.env.POSTGRESQL_BALLERS_DB_PASSWORD}`,
-    port: 5432,
+    port: `${process.env.PORT}`,
 })
 
 const client = new Client({
@@ -27,7 +27,7 @@ const client = new Client({
     host: 'localhost',
     database: 'ballers_2022',
     password: `${process.env.POSTGRESQL_BALLERS_DB_PASSWORD}`,
-    port: 5432,
+    port: `${process.env.PORT}`,
   })
   try {
     client.connect()
