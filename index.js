@@ -235,6 +235,7 @@ app.post('/api/rate/:password', async (req, res) => {
 // GENERATE LEADERBOARD 
 
 app.get('/api/leaderboard', async (req, res) => {
+    // Selects distinct names so we get a list with every player that has every played
     const query1 = `SELECT DISTINCT (name) FROM ratings`
     client.query(query1, (err, result1) => {
         if(err){
@@ -247,6 +248,7 @@ app.get('/api/leaderboard', async (req, res) => {
             let uniqueNameArray = [];
             let overallRatingArray = [];
             let queryResult = result1.rows;
+            console.log('UNIQUE LIST OF NAMES:', queryResult);
             for (let i = 0; i < queryResult.length; i++) {
                 uniqueNameArray[i] = queryResult[i].name;
                 
@@ -265,7 +267,9 @@ app.get('/api/leaderboard', async (req, res) => {
                         }
 
                         let overall_avg = sum/secondQueryResult.length;
+                        console.log('WTF IS HERE', overall_avg)
                         let overall_avg_1dp = overall_avg.toFixed(1);
+                        console.log('THERES NO WAY', overall_avg_1dp);
 
                          // OBTAIN NUMBER OF MATCHES PLAYED 
                         const query3 = `SELECT COUNT(DISTINCT(password)) FROM ratings WHERE name=$1`
@@ -278,9 +282,10 @@ app.get('/api/leaderboard', async (req, res) => {
                                 console.log('DISTINCT RESULT:', thirdQueryResult);
                                 console.log(thirdQueryResult[0].count)
                                 let matches_played = parseInt(thirdQueryResult[0].count);   
+                                console.log('WHAT IS THIS VALUE HERE', overall_avg_1dp)
                                 let resultObject = { 'name': uniqueNameArray[i], 'overall_rating': overall_avg_1dp, 'matches_played': matches_played }
                                 overallRatingArray.push(resultObject);
-                                console.log('OVERALL RAITNG ARRAY', overallRatingArray)
+                                console.log('OVERALL RATING ARRAY', overallRatingArray)
                                 console.log('RESULT OBJECT:', resultObject)
 
                                 
