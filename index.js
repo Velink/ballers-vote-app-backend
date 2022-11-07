@@ -15,19 +15,11 @@ const JWT_SECRET = 'jifjwogjeiwjgowigjweoigjweoijoei';
 const { Pool, Client } = require('pg');
 
 const pool = new Pool({
-    user: 'gbpedaqgaamppj',
-    host: 'ec2-52-212-228-71.eu-west-1.compute.amazonaws.com',
-    database: 'd181k05rf6fjq2',
-    password: `${process.env.POSTGRESQL_BALLERS_DB_PASSWORD}`,
-    port: 5432,
+    connectionString: process.env.DATABASE_URL,
 })
 
 const client = new Client({
-    user: 'gbpedaqgaamppj',
-    host: 'ec2-34-241-90-235.eu-west-1.compute.amazonaws.com',
-    database: 'd181k05rf6fjq2',
-    password: `${process.env.POSTGRESQL_BALLERS_DB_PASSWORD}`,
-    port: 5432,
+    connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized:false
     }
