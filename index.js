@@ -167,60 +167,90 @@ app.post('/api/rate/:password', async (req, res) => {
                         // To do that we need to select all columns for a given name and calculate the average excluding null values
                         // We then take that calculated avg_rating and set it in the avg_rating column 
 
-                        const query3 = `SELECT (rating1, rating2, rating3, rating4, rating5, rating6, rating7, rating8, rating9, rating10, rating11, rating12, rating13, rating14) from ratings WHERE name=$1 AND password=$2`
-                        client.query(query3, values2, (err, res) => {
-                            if(err){
-                                console.log(err.stack);
-                            } else {
-                                console.log(res)
-                                console.log(res.rows[0].row);
-
-                                // So row is an array of strings - so I can loop through it and try to convert each element to a number 
-                                // If successful add number to number array otherwise continue 
-
-                                let stringRatings = res.rows[0].row;
-                                let stringRatingsRegex = stringRatings.replace(/\D/g,'');
-                                console.log('this is stringRatings:' , stringRatings)
-                                let currentRatingArray = [];
-                                let sum = 0;
-                                let avg;
-                                for (let j = 0; j < stringRatingsRegex.length; j++) {
-                                        currentRatingArray[j] = parseFloat(stringRatingsRegex[j]);
-                                        sum += currentRatingArray[j]
-                                }
-
-                                
-                                console.log(currentRatingArray);
-                                
-                                avg = sum/currentRatingArray.length;
-                                avg_1_dp = avg.toFixed(1);
-                                console.log('this is the current average rating:', avg_1_dp)
-
-
-                                const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
-                                const values4 = [avg_1_dp, `${ratingsArray[i].name}`, password]
-                                client.query(query4, values4, (err, res) => {
-                                    if(err){
-                                        console.log(err.stack);
-                                    } else {
-                                        console.log("result of setting avg_rating:", res);
+                        // const query3 = `SELECT (rating1, rating2, rating3, rating4, rating5, rating6, rating7, rating8, rating9, rating10, rating11, rating12, rating13, rating14) from ratings WHERE name=$1 AND password=$2`
+                        // We run the above query as 14 separate queries by using a loop - after each query we add the float to an array and then we get our avg_rating from that array and push it to the db. 
+                        let playerFloatArray = [];
+                        let sum_value = 0;
+                        for (let h = 1; h <= 14; h++) {
+                            const query3 = `SELECT (rating${h}) from ratings WHERE name=$1 AND password=$2`
+                            client.query(query3, values2, (err, res) => {
+                                if(err){
+                                    console.log(err.stack);
+                                } else {
+                                    console.log('HOW DOES THIS CUM', res)
+                                    console.log(Object.values(res.rows[0])[0]);
+                                    sum_value += Object.values(res.rows[0])[0];
+                                    if(Object.values(res.rows[0])[0] !== null){
+                                        playerFloatArray.push(Object.values(res.rows[0])[0]);
                                     }
-                                })
-        
+                                    // I loop through 14 but not all 14 will be filled out instantly 
+                                    // Check if(value !== null or undefined or '') and then add to sum value
+                                    // Once this finished running call function to update avg rating 
 
-                                // ** ATTENTION ** - The issue above is that we have no error handling for when 14 votes are in 
-                                // We need to return and error saying voting full - but when we do that we get a set headers problem
-                                // We do the check for null so at least avg_Rating should be filled with a normal rating value 
-                                // Convert String array to Number array 
+                                    if (h == 14){
+                                        let fixed_avg_rating = (sum_value / playerFloatArray.length).toFixed(1);
+                                        console.log('FIXED_AVG_RATING', fixed_avg_rating);
+                                            
+                                        const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
+                                        const values4 = [fixed_avg_rating, `${ratingsArray[i].name}`, password]
+                                        client.query(query4, values4, (err, res) => {
+                                            if(err){
+                                                console.log(err.stack);
+                                            } else {
+                                                console.log("result of setting avg_rating:", res);
+                                            }
+                                        })
 
-
-
-                                // TO SEPARATE THESE QUERIES WE WRAP THEM AROUND FUNCTIONS 
-                                // They call on eachother passing the values requried from each query 
-                            
-                            }
-                        })
-
+                                        // saveAvgRating(fixed_avg_rating);
+                                    }
+                                    // So row is an array of strings - so I can loop through it and try to convert each element to a number 
+                                    // If successful add number to number array otherwise continue 
+    
+                                    // let stringRatings = res.rows[0].row;
+                                    // let stringRatingsRegex = stringRatings.replace(/\D/g,'');
+                                    // console.log('STRING RATINGS', stringRatings);
+                                    // console.log('STRING RATINGS REGEX', stringRatingsRegex);
+                                    // console.log('this is stringRatings:' , stringRatings)
+                                    // let currentRatingArray = [];
+                                    // let sum = 0;
+                                    // let avg;
+                                    // for (let j = 0; j < stringRatingsRegex.length; j++) {
+                                    //         currentRatingArray[j] = parseFloat(stringRatingsRegex[j]);
+                                    //         sum += currentRatingArray[j]
+                                    // }
+    
+                                    
+                                    // console.log(' WHATS THIS SAYING' , currentRatingArray);
+                                    
+                                    // avg = sum/currentRatingArray.length;
+                                    // avg_1_dp = avg.toFixed(1);
+                                    // // console.log('this is the current average rating:', avg_1_dp)
+    
+    
+                                    // const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
+                                    // const values4 = [avg_1_dp, `${ratingsArray[i].name}`, password]
+                                    // client.query(query4, values4, (err, res) => {
+                                    //     if(err){
+                                    //         console.log(err.stack);
+                                    //     } else {
+                                    //         // console.log("result of setting avg_rating:", res);
+                                    //     }
+                                    // })
+            
+    
+                                    // ** ATTENTION ** - The issue above is that we have no error handling for when 14 votes are in 
+                                    // We need to return and error saying voting full - but when we do that we get a set headers problem
+                                    // We do the check for null so at least avg_Rating should be filled with a normal rating value 
+                                    // Convert String array to Number array 
+    
+    
+    
+                                    // TO SEPARATE THESE QUERIES WE WRAP THEM AROUND FUNCTIONS 
+                                    // They call on eachother passing the values requried from each query 
+                                
+                                }
+                            })   
+                        }
                     }
                 })
         }
