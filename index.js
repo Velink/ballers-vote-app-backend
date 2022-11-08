@@ -371,10 +371,47 @@ app.get('/api/home/weekly', async (req, res) => {
         {
             console.log(err.stack);
         } else {
-            console.log('I\'m LOOKING FOR THIS', result);
-            let weeklyArray = result.rows;
-            console.log(weeklyArray);
-            res.json({status: 'ok', result: weeklyArray});
+            let str = result.rows[0].row;
+            console.log('WHAT HEEE', str);
+            let playerName = str.slice(
+                str.indexOf('"') + 1,
+                str.lastIndexOf('"'),
+            )
+            console.log(playerName);
+            const query2 = `SELECT * FROM ratings WHERE name=$1 AND current_week=true`
+            const values2 = [playerName];
+            client.query(query2, values2, (err, result2) => {
+                if(err){
+                    console.log(err);
+                } else {
+                    console.log(result2);
+                    console.log(result2.rows[0]);
+                    let foundObject = result2.rows[0];
+                    let c = 0;
+                    for (let p = 5; p <= 19; p++) {
+                        console.log('WHATS THIS', Object.values(foundObject)[p]);
+                        c++;
+                        if(Object.values(foundObject)[p] == null && Object.keys(foundObject)[p] !== 'avg_rating'){
+                            console.log('Number of votes:', c - 1);
+                            let weeklyArray = result.rows;
+                            console.log(weeklyArray);
+                            res.json({status: 'ok', result: weeklyArray, votes: c - 1});
+                            break;
+                        } else if (p == 19){
+                            console.log('Number of votes: 14' );
+                            let weeklyArray = result.rows;
+                            console.log(weeklyArray);
+                            res.json({status: 'ok', result: weeklyArray, votes: 14});
+                        }
+                        
+                    }
+                }
+            })
+
+            // console.log('I\'m LOOKING FOR THIS', result);
+            // let weeklyArray = result.rows;
+            // console.log(weeklyArray);
+            // res.json({status: 'ok', result: weeklyArray});
         }
     })
 })
