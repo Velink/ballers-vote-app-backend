@@ -265,7 +265,7 @@ app.post('/api/rate/:password', async (req, res) => {
 // GENERATE LEADERBOARD 
 
 app.get('/api/leaderboard', async (req, res) => {
-    // Selects distinct names so we get a list with every player that has every played
+    // Selects distinct names so we get a list with every player that has ever played
     const query1 = `SELECT DISTINCT (name) FROM ratings`
     client.query(query1, (err, result1) => {
         if(err){
@@ -283,7 +283,7 @@ app.get('/api/leaderboard', async (req, res) => {
                 uniqueNameArray[i] = queryResult[i].name;
                 
                 // COMPUTE OVERALL RATING 
-                const query2 = `SELECT avg_rating, name FROM ratings WHERE name=$1`
+                const query2 = `SELECT avg_rating, windrawloss, name FROM ratings WHERE name=$1`
                 const values2 = [uniqueNameArray[i]]
                 client.query(query2, values2, (err, result2) => {
                     if(err){
@@ -292,8 +292,20 @@ app.get('/api/leaderboard', async (req, res) => {
                         let secondQueryResult = result2.rows;
                         console.log('IS THIS THE RESULT:', result2.rows);
                         let sum = 0;
+                        let wins = 0;
+                        let draws = 0;
+                        let losses = 0
                         for (let j = 0; j < secondQueryResult.length; j++) {
                             sum += secondQueryResult[j].avg_rating
+                            if(secondQueryResult[j].windrawloss == 'win'){
+                                wins++;
+                            }
+                            else if(secondQueryResult[j].windrawloss == 'loss'){
+                                losses++;
+                            }
+                            else if(secondQueryResult[j].windrawloss == 'draw'){
+                                draws++;
+                            }
                         }
 
                         let overall_avg = sum/secondQueryResult.length;
@@ -313,7 +325,7 @@ app.get('/api/leaderboard', async (req, res) => {
                                 console.log(thirdQueryResult[0].count)
                                 let matches_played = parseInt(thirdQueryResult[0].count);   
                                 console.log('WHAT IS THIS VALUE HERE', overall_avg_1dp)
-                                let resultObject = { 'name': uniqueNameArray[i], 'overall_rating': overall_avg_1dp, 'matches_played': matches_played }
+                                let resultObject = { 'name': uniqueNameArray[i], 'overall_rating': overall_avg_1dp, 'matches_played': matches_played, 'wins': wins, 'losses': losses, 'draws': draws }
                                 overallRatingArray.push(resultObject);
                                 console.log('OVERALL RATING ARRAY', overallRatingArray)
                                 console.log('RESULT OBJECT:', resultObject)
@@ -325,6 +337,12 @@ app.get('/api/leaderboard', async (req, res) => {
                                 }
 
                             }
+
+
+                            // I have the unique name array here - so what I need to do is select all windrawloss column for each name
+                            // count each one for each unique name so I get an array of values for each name 
+                            // I loop through that array and update each counter variables wins; draws; losses; 
+                            // I send that back to the client with MP
                         }) 
               
 
