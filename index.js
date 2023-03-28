@@ -152,14 +152,20 @@ app.post('/api/rate/:password', async (req, res) => {
                         let emptyColumn = checkNullRow(selectedPlayer);
                         console.log('we got this far', emptyColumn);
 
-                        const query2 = `UPDATE ratings SET ${emptyColumn}=${ratingsArray[i].rating} WHERE name=$1 AND password=$2 RETURNING *`
+                        let columnNumber = emptyColumn.replace(/\D+/g, '');
+                        console.log('COLUMN NUMBER???' + columnNumber);
+                        let emptyUserColumn = `user${columnNumber}`;
+                        console.log('EMPTY USER COLUMN?' + emptyUserColumn);
+                        console.log('IS THIS THY USERname: ', ratingsArray[i].user);
+
+                        const query2 = `UPDATE ratings SET ${emptyColumn}=${ratingsArray[i].rating}, ${emptyUserColumn}='${ratingsArray[i].user}' WHERE name=$1 AND password=$2 RETURNING *`
                         const values2 = [`${ratingsArray[i].name}`, password]
                         client.query(query2, values2, (err, res) => {
                             if(err){
                                 console.log(err.stack);
                             } else {
                                 // console.log(res);
-                                console.log('new')
+                                // console.log('new')
                             }
                         })
 
@@ -177,8 +183,8 @@ app.post('/api/rate/:password', async (req, res) => {
                                 if(err){
                                     console.log(err.stack);
                                 } else {
-                                    console.log('HOW DOES THIS CUM', res)
-                                    console.log(Object.values(res.rows[0])[0]);
+                                    // console.log('HOW DOES THIS CUM', res)
+                                    // console.log(Object.values(res.rows[0])[0]);
                                     sum_value += Object.values(res.rows[0])[0];
                                     if(Object.values(res.rows[0])[0] !== null){
                                         playerFloatArray.push(Object.values(res.rows[0])[0]);
@@ -189,15 +195,15 @@ app.post('/api/rate/:password', async (req, res) => {
 
                                     if (h == 14){
                                         let fixed_avg_rating = (sum_value / playerFloatArray.length).toFixed(1);
-                                        console.log('FIXED_AVG_RATING', fixed_avg_rating);
+                                        // console.log('FIXED_AVG_RATING', fixed_avg_rating);
                                             
                                         const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
                                         const values4 = [fixed_avg_rating, `${ratingsArray[i].name}`, password]
                                         client.query(query4, values4, (err, res) => {
                                             if(err){
-                                                console.log(err.stack);
+                                                // console.log(err.stack);
                                             } else {
-                                                console.log("result of setting avg_rating:", res);
+                                    
                                             }
                                         })
 
@@ -417,6 +423,26 @@ app.get('/api/weekly/:password', async (req, res) => {
     })
 })
 
+// GENERATE INDIVIDUAL PLAYER RATINGS AND WHO GAVE THOSE RATINGS BASED ON PASSWORD 
+
+// So first of all we will need to fetch the data for that week based on /:password 
+// We then need the Rob Beadle whole Row - rating 1 to 14 and user 1 - 14  
+
+app.get('/api/reveal/weekly/:name', async (req, res) => {
+    let playerName = req.params.name;
+    const text = `SELECT * FROM ratings WHERE name=$1 AND current_week=true`
+    const values = [playerName]
+    client.query(text, values, (err, result) => {
+        if(err){
+            console.log(err.stack);
+        } else {
+            console.log('PLAYER ROW', result.rows);
+            res.json({status: 'ok', result: result})
+        }
+    })
+})
+
+
 
 // GENERATE WEEKLY SCORES BASED ON CURRENT BOOLEAN 
 app.get('/api/home/weekly', async (req, res) => {
@@ -564,6 +590,78 @@ app.post('/api/register', async (req, res) => {
     }
     res.json({status: 'ok'})
 })
+
+// USER AUTHENTICATION - LOGIN SYSTEM 
+
+app.post('/api/user-login', async (req,res) => {
+
+    const { username, password} = req.body;
+
+    const query = `SELECT (password) FROM users WHERE username=$1`
+    const values = [username];
+    client.query(query, values, async (err, result) => {
+        if(err)
+        {
+            console.log(err.stack);
+            res.json({status: 'error', error: 'Invalid username/password'})
+        } else {
+            console.log('This is from the query', result);
+            if(await bcrypt.compare(password, result.rows[0].password)){
+
+                const token = jwt.sign({  
+                    username: username 
+                }, 
+                JWT_SECRET)
+        
+                return res.json({status: 'ok',  data: token})
+            }
+
+        }
+    })
+})
+
+app.post('/api/user-register', async (req, res) => {
+    const {email, username, password: plainTextPassword } = req.body
+
+    // Invalid Username error handling
+    if(!username || typeof username !== 'string'){
+        return res.json({ status: 'error', error: 'Invalid username'})
+    }
+
+    // Invalid password error handling 
+    if(!plainTextPassword || typeof plainTextPassword !== 'string'){
+        return res.json({ status: 'error', error: 'Invalid password'})
+    }
+
+    if(plainTextPassword.length < 5){
+        return res.json({status: 'error', error: 'Password too small. Should be at least 6 characters'})
+    }
+
+    const password = await bcrypt.hash(plainTextPassword, 10)
+
+    try {
+        console.log('username: ', username);
+        console.log('email', email)
+        console.log('password: ', password);
+        const query = `INSERT INTO users(email, username, password) VALUES($1, $2, $3) RETURNING *`
+        const values = [email, username, password];
+        client.query(query, values, (err, result) => {
+            if(err)
+            {
+                console.log(err.stack);
+            } else {
+                console.log('postgresql REG BABY', result)
+                res.json({status: 'ok', result: result});
+            }
+        })
+    } catch (error) {
+        if(error.code === 11000){
+            return res.json({status: 'error', error: 'Username already exists'})
+        }
+        throw error
+    }
+})
+
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`)
