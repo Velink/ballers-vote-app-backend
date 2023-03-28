@@ -401,7 +401,7 @@ app.get('/api/weekly/:password', async (req, res) => {
                     for (let p = 5; p <= 19; p++) {
                         console.log('WHATS THIS', Object.values(foundObject)[p]);
                         c++;
-                        if(Object.values(foundObject)[p] == null && Object.keys(foundObject)[p] !== 'avg_rating' && Object.keys(foundObject)[p].indexOf('user') == -1){
+                        if(Object.values(foundObject)[p] == null && Object.keys(foundObject)[p] !== 'avg_rating'){
                             console.log('Number of votes:', c - 1);
                             // let weeklyArray = result.rows;
                             // console.log(weeklyArray);
