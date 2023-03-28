@@ -69,7 +69,7 @@ app.post('/api/create', async (req, res) => {
     //POSTGRES ATTEMPTS 
     // CREATE POSTGRESQL TABLE - with Name values filled in and ratings empty 
     for (let i = 0; i < playerArray.length; i++) {
-        const text = 'INSERT INTO test_ratings(name, password) VALUES($1, $2) RETURNING *'
+        const text = 'INSERT INTO ratings(name, password) VALUES($1, $2) RETURNING *'
         const values = [playerArray[i], password]
         client.query(text, values, (err, res) => {
             if(err){
@@ -140,7 +140,7 @@ app.post('/api/rate/:password', async (req, res) => {
                 }
 
                 // How do we know which rating to set? - WE CALL THE ABOVE FUNCTION THAT LOOPS THROUGH OBJECT AND FINDS FIRST NULL VALUE 
-                const query1 = 'SELECT * FROM test_ratings WHERE name=$1 AND password=$2'
+                const query1 = 'SELECT * FROM ratings WHERE name=$1 AND password=$2'
                 const values1 = [`${ratingsArray[i].name}`, password]
                 client.query(query1, values1, (err, res) => {
                     if(err){
@@ -158,7 +158,7 @@ app.post('/api/rate/:password', async (req, res) => {
                         console.log('EMPTY USER COLUMN?' + emptyUserColumn);
                         console.log('IS THIS THY USERname: ', ratingsArray[i].user);
 
-                        const query2 = `UPDATE test_ratings SET ${emptyColumn}=${ratingsArray[i].rating}, ${emptyUserColumn}='${ratingsArray[i].user}' WHERE name=$1 AND password=$2 RETURNING *`
+                        const query2 = `UPDATE ratings SET ${emptyColumn}=${ratingsArray[i].rating}, ${emptyUserColumn}='${ratingsArray[i].user}' WHERE name=$1 AND password=$2 RETURNING *`
                         const values2 = [`${ratingsArray[i].name}`, password]
                         client.query(query2, values2, (err, res) => {
                             if(err){
@@ -178,7 +178,7 @@ app.post('/api/rate/:password', async (req, res) => {
                         let playerFloatArray = [];
                         let sum_value = 0;
                         for (let h = 1; h <= 14; h++) {
-                            const query3 = `SELECT (rating${h}) from test_ratings WHERE name=$1 AND password=$2`
+                            const query3 = `SELECT (rating${h}) from ratings WHERE name=$1 AND password=$2`
                             client.query(query3, values2, (err, res) => {
                                 if(err){
                                     console.log(err.stack);
@@ -197,7 +197,7 @@ app.post('/api/rate/:password', async (req, res) => {
                                         let fixed_avg_rating = (sum_value / playerFloatArray.length).toFixed(1);
                                         // console.log('FIXED_AVG_RATING', fixed_avg_rating);
                                             
-                                        const query4 = `UPDATE test_ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
+                                        const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
                                         const values4 = [fixed_avg_rating, `${ratingsArray[i].name}`, password]
                                         client.query(query4, values4, (err, res) => {
                                             if(err){
@@ -401,7 +401,7 @@ app.get('/api/weekly/:password', async (req, res) => {
                     for (let p = 5; p <= 19; p++) {
                         console.log('WHATS THIS', Object.values(foundObject)[p]);
                         c++;
-                        if(Object.values(foundObject)[p] == null && Object.keys(foundObject)[p] !== 'avg_rating'){
+                        if(Object.values(foundObject)[p] == null && Object.keys(foundObject)[p] !== 'avg_rating' && Object.keys(foundObject)[p].indexOf('user') == -1){
                             console.log('Number of votes:', c - 1);
                             // let weeklyArray = result.rows;
                             // console.log(weeklyArray);
@@ -430,50 +430,13 @@ app.get('/api/weekly/:password', async (req, res) => {
 
 app.get('/api/reveal/weekly/:name', async (req, res) => {
     let playerName = req.params.name;
-    const text = `SELECT * FROM test_ratings WHERE name=$1 AND current_week=true`
+    const text = `SELECT * FROM ratings WHERE name=$1 AND current_week=true`
     const values = [playerName]
     client.query(text, values, (err, result) => {
         if(err){
             console.log(err.stack);
         } else {
             console.log('PLAYER ROW', result.rows);
-            // let str = result.rows[0].row;
-            // console.log('WHAT HEEE', str);
-            // let playerName = str.slice(
-            //     str.indexOf('"') + 1,
-            //     str.lastIndexOf('"'),
-            // )
-            // console.log(playerName);
-            // const query2 = `SELECT * FROM ratings WHERE name=$1 AND current_week=true`
-            // const values2 = [playerName];
-            // client.query(query2, values2, (err, result2) => {
-            //     if(err){
-            //         console.log(err);
-            //     } else {
-            //         console.log(result2);
-            //         console.log(result2.rows[0]);
-            //         let foundObject = result2.rows[0];
-            //         let c = 0;
-            //         for (let p = 5; p <= 19; p++) {
-            //             console.log('WHATS THIS', Object.values(foundObject)[p]);
-            //             c++;
-            //             if(Object.values(foundObject)[p] == null && Object.keys(foundObject)[p] !== 'avg_rating'){
-            //                 console.log('Number of votes:', c - 1);
-            //                 // let weeklyArray = result.rows;
-            //                 // console.log(weeklyArray);
-            //                 res.json({status: 'ok', result: result.rows, votes: c - 1});
-            //                 break;
-            //             } else if (p == 19){
-            //                 console.log('Number of votes: 14' );
-            //                 // let weeklyArray = result.rows;
-            //                 // console.log(weeklyArray);
-            //                 res.json({status: 'ok', result: result.rows, votes: 14});
-            //             }
-                        
-            //         }
-            //     }
-            // })
-
             res.json({status: 'ok', result: result})
         }
     })
