@@ -596,6 +596,7 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/user-login', async (req,res) => {
 
     const { username, password} = req.body;
+    console.log('what be here: ', req.body);
     // Invalid Username error handling
     if(!username || typeof username !== 'string'){
         return res.json({ status: 'error', error: 'Invalid username'})
@@ -613,12 +614,13 @@ app.post('/api/user-login', async (req,res) => {
     const query = `SELECT (password) FROM users WHERE username=$1`
     const values = [username];
     client.query(query, values, async (err, result) => {
-        if(err)
+        console.log(result.rowCount);
+        if(err || result.rowCount == 0)
         {
-            console.log(err.stack);
+            console.log(err);
             res.json({status: 'error', error: 'Invalid username/password'})
         } else {
-            console.log('This is from the query', result);
+            console.log('This is from the query [CHECK]', result);
             if(await bcrypt.compare(password, result.rows[0].password)){
 
                 const token = jwt.sign({  
@@ -627,6 +629,8 @@ app.post('/api/user-login', async (req,res) => {
                 JWT_SECRET)
         
                 return res.json({status: 'ok',  data: token})
+            } else {
+                res.json({status: 'error', error: 'Invalid username/password'})
             }
 
         }
