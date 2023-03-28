@@ -596,6 +596,19 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/user-login', async (req,res) => {
 
     const { username, password} = req.body;
+    // Invalid Username error handling
+    if(!username || typeof username !== 'string'){
+        return res.json({ status: 'error', error: 'Invalid username'})
+    }
+
+    // Invalid password error handling 
+    if(!password || typeof password !== 'string'){
+        return res.json({ status: 'error', error: 'Invalid password'})
+    }
+
+    if(password.length < 3){
+        return res.json({status: 'error', error: 'Password too small. Should be at least 4 characters'})
+    }
 
     const query = `SELECT (password) FROM users WHERE username=$1`
     const values = [username];
@@ -621,7 +634,13 @@ app.post('/api/user-login', async (req,res) => {
 })
 
 app.post('/api/user-register', async (req, res) => {
+    const regex = /^\S+@\S+\.\S+$/
     const {email, username, password: plainTextPassword } = req.body
+
+    // Invalid email error handling
+    if(!email || regex.test(email) !== true){
+        return res.json({ status: 'error', error: 'Invalid email'})
+    }
 
     // Invalid Username error handling
     if(!username || typeof username !== 'string'){
@@ -633,8 +652,8 @@ app.post('/api/user-register', async (req, res) => {
         return res.json({ status: 'error', error: 'Invalid password'})
     }
 
-    if(plainTextPassword.length < 5){
-        return res.json({status: 'error', error: 'Password too small. Should be at least 6 characters'})
+    if(plainTextPassword.length < 3){
+        return res.json({status: 'error', error: 'Password too small. Should be at least 4 characters'})
     }
 
     const password = await bcrypt.hash(plainTextPassword, 10)
