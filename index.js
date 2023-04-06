@@ -164,8 +164,8 @@ app.post('/api/rate/:password', async (req, res) => {
                             if(err){
                                 console.log(err.stack);
                             } else {
-                                // console.log(res);
-                                // console.log('new')
+                                console.log(res);
+                                console.log('new')
                             }
                         })
 
@@ -195,15 +195,15 @@ app.post('/api/rate/:password', async (req, res) => {
 
                                     if (h == 14){
                                         let fixed_avg_rating = (sum_value / playerFloatArray.length).toFixed(1);
-                                        // console.log('FIXED_AVG_RATING', fixed_avg_rating);
+                                        console.log('FIXED_AVG_RATING', fixed_avg_rating);
                                             
                                         const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
                                         const values4 = [fixed_avg_rating, `${ratingsArray[i].name}`, password]
                                         client.query(query4, values4, (err, res) => {
                                             if(err){
-                                                // console.log(err.stack);
+                                                console.log(err.stack);
                                             } else {
-                                    
+                                                console.log('yabadabadoo: ', res);
                                             }
                                         })
 
