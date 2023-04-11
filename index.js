@@ -7,6 +7,9 @@ const PORT = process.env.PORT || 3000;
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 
+const crypto = require('crypto')
+const nodemailer = require('nodemailer');
+
 require('dotenv').config()
 const JWT_SECRET = 'jifjwogjeiwjgowigjweoigjweoijoei';
 
@@ -164,8 +167,8 @@ app.post('/api/rate/:password', async (req, res) => {
                             if(err){
                                 console.log(err.stack);
                             } else {
-                                // console.log(res);
-                                // console.log('new')
+                                console.log(res);
+                                console.log('new')
                             }
                         })
 
@@ -195,15 +198,15 @@ app.post('/api/rate/:password', async (req, res) => {
 
                                     if (h == 14){
                                         let fixed_avg_rating = (sum_value / playerFloatArray.length).toFixed(1);
-                                        // console.log('FIXED_AVG_RATING', fixed_avg_rating);
+                                        console.log('FIXED_AVG_RATING', fixed_avg_rating);
                                             
                                         const query4 = `UPDATE ratings SET avg_rating=$1 WHERE name=$2 AND password=$3 RETURNING *`
                                         const values4 = [fixed_avg_rating, `${ratingsArray[i].name}`, password]
                                         client.query(query4, values4, (err, res) => {
                                             if(err){
-                                                // console.log(err.stack);
+                                                console.log(err.stack);
                                             } else {
-                                    
+                                                console.log('yabadabadoo: ', res);
                                             }
                                         })
 
@@ -663,18 +666,108 @@ app.post('/api/user-register', async (req, res) => {
     const password = await bcrypt.hash(plainTextPassword, 10)
 
     try {
-        console.log('username: ', username);
-        console.log('email', email)
-        console.log('password: ', password);
-        const query = `INSERT INTO users(email, username, password) VALUES($1, $2, $3) RETURNING *`
-        const values = [email, username, password];
-        client.query(query, values, (err, result) => {
+
+        const emailQuery = `SELECT * FROM users WHERE email=$1`
+        const emailValue = [email];
+        client.query(emailQuery, emailValue, (err, result) => {
+            if(err){
+                console.log(err);
+            } else {
+                // CHECK IF EMAIL EXISTS
+                if(result.rowCount == 0){
+                    const usernameQuery = `SELECT * FROM users WHERE username=$1`
+                    const usernameValue = [username];
+                    client.query(usernameQuery, usernameValue, (err, result) => {
+                        if(err)
+                        {
+                            console.log(err.stack);
+                        } else {
+                            // CHECK IF USERNAME EXISTS 
+                            if(result.rowCount == 0){
+                                const query = `INSERT INTO users(email, username, password) VALUES($1, $2, $3) RETURNING *`
+                                const values = [email, username, password];
+                                client.query(query, values, (err, result) => {
+                                    if(err)
+                                    {
+                                        console.log(err.stack);
+                                    } else {
+                                        console.log('postgresql REG BABY', result)
+                                        res.json({status: 'ok', result: result});
+                                    }
+                                })
+                            }
+                            else {
+                                return res.json({status: 'error', error: 'Username already exists!'})
+                            }
+                            //console.log('postgresql REG BABY', result)
+                            //res.json({status: 'ok', result: result});
+                        }
+                    })
+                } else {
+                    return res.json({status: 'error', error: 'Email already exists!'})
+                }
+            }
+        })
+    } catch (error) {
+        if(error.code === 11000){
+            return res.json({status: 'error', error: 'Username already exists'})
+        }
+        throw error
+    }
+})
+
+// CHECK EMAIL EXISTS
+app.post('/api/check-email', async (req, res) => {
+    const regex = /^\S+@\S+\.\S+$/
+    const email = req.body.userEmail
+    console.log('email ' + email);
+
+    // Invalid email error handling
+    if(!email || regex.test(email) !== true){
+        return res.json({ status: 'error', error: 'Invalid email'})
+    }
+
+    try {
+        console.log('email', email);
+        const query = `SELECT token FROM users WHERE email=$1`
+        const values = [email];
+        client.query(query, values, async (err, result) => {
             if(err)
             {
                 console.log(err.stack);
             } else {
-                console.log('postgresql REG BABY', result)
-                res.json({status: 'ok', result: result});
+                if(result.rowCount > 0){
+                    console.log('i want the token ' + result);
+                    res.json({status: 'ok', result: result});
+                    // Check if token is null if it is delete it 
+
+                    // Create reset token 
+                    const resetToken = crypto.randomBytes(64).toString('hex');
+                    console.log('resetToken ' + resetToken);
+
+                    // Hash reset token
+                    const hashedToken = await bcrypt.hash(resetToken, 10);
+                    console.log('hashedResetToken ' + hashedToken);
+
+                    // Store hashed token in database 
+                    const query = `UPDATE users SET token='${hashedToken}' WHERE email=$1`
+                    console.log('we still got email tho? ' + email)
+                    const values = [email];
+                    try {
+                        client.query(query, values, (err, result) => {
+                            if(err){
+                                console.log('ERR' + err);
+                            } else {
+                                console.log('ressult ' + result)
+                                sendEmail(resetToken, email);
+                            }
+                        })   
+                    } catch (err) {
+                        console.log(err);
+                    }
+                } else {
+                    res.json({status: 'error', error: 'Email doesn\'t exist!'})
+                }
             }
         })
     } catch (error) {
@@ -688,4 +781,156 @@ app.post('/api/user-register', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`)
+})
+
+
+// Nodemailer Setup 
+async function sendEmail(token, email){
+    const link = `https://ballers-edmonton.netlify.app/reset-user-password.html?token=${token}&id=${email}`;
+    try {
+        let transporter = nodemailer.createTransport({
+            host: "smtp-mail.outlook.com",
+            port: 587,
+            auth: {
+                user: `${process.env.NODEMAILER_EMAIL}`,
+                pass: `${process.env.NODEMAILER_PASSWORD}`
+            }
+        })
+    
+        // send mail with defined transport object
+        let info = await transporter.sendMail({
+            from: 'Ballers Management Team <edmontonballersmgmt@hotmail.com>', // sender address
+            to: `${email}`, // list of receivers
+            subject: "Password Reset Instructions", // Subject line
+            text: `Please click on this link to reset your password: ${link}`, // plain text body
+            attachments: [
+                {
+                    filename: 'uefa.png',
+                    path: './uefa.png',
+                    cid: 'logo'
+                }
+            ],
+            html: `
+            <img src="cid:logo" width="320" height="304" style="margin: 0 auto; text-align: center; display: flex;">
+            <h2 style="text-align: center;">Forgot your password?</h2>
+            <p style="font-size: 24px; text-align: center;">That's okay, it happens! Click on the button below to reset your password!</p>
+            <a href=${link} style=\"width: 500px; font-size: 24px; display: flex; flex-direction: column; justify-content: center; font-weight: bold; font-family: Verdana, sans-serif; text-align: center; text-decoration: none; margin: 0 auto; border:none; background-color: black; color: #fff; padding: 12px 24px; letter-spacing: 0.1em\">RESET PASSWORD</a>`, // html body
+          });
+        
+          console.log("Message sent: %s", info.messageId);
+          // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
+        
+          // Preview only available when sending through an Ethereal account
+          console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+          // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...   
+    } catch (error) {
+          console.log(error);
+    }
+}
+
+// CHECK EMAIL EXISTS
+app.post('/api/check-email', async (req, res) => {
+    const regex = /^\S+@\S+\.\S+$/
+    const email = req.body.userEmail
+    console.log('email ' + email);
+
+    // Invalid email error handling
+    if(!email || regex.test(email) !== true){
+        return res.json({ status: 'error', error: 'Invalid email'})
+    }
+
+    try {
+        console.log('email', email);
+        const query = `SELECT token FROM users WHERE email=$1`
+        const values = [email];
+        client.query(query, values, async (err, result) => {
+            if(err)
+            {
+                console.log(err.stack);
+            } else {
+                if(result.rowCount > 0){
+                    console.log('i want the token ' + result);
+                    res.json({status: 'ok', result: result});
+                    // Check if token is null if it is delete it 
+
+                    // Create reset token 
+                    const resetToken = crypto.randomBytes(64).toString('hex');
+                    console.log('resetToken ' + resetToken);
+
+                    // Hash reset token
+                    const hashedToken = await bcrypt.hash(resetToken, 10);
+                    console.log('hashedResetToken ' + hashedToken);
+
+                    // Store hashed token in database 
+                    const query = `UPDATE users SET token='${hashedToken}' WHERE email=$1`
+                    console.log('we still got email tho? ' + email)
+                    const values = [email];
+                    try {
+                        client.query(query, values, (err, result) => {
+                            if(err){
+                                console.log('ERR' + err);
+                            } else {
+                                console.log('ressult ' + result)
+                                sendEmail(resetToken, email);
+                            }
+                        })   
+                    } catch (err) {
+                        console.log(err);
+                    }
+                } else {
+                    res.json({status: 'error', error: 'Email doesn\'t exist!'})
+                }
+            }
+        })
+    } catch (error) {
+        if(error.code === 11000){
+            return res.json({status: 'error', error: 'Username already exists'})
+        }
+        throw error
+    }
+})
+
+
+// User Password Reset 
+
+app.post('/api/user-password-update', async (req, res) => {
+    const {email, token} = req.body
+    let newPassword = req.body.newpassword;
+
+    try {
+        const query = `SELECT * FROM users WHERE email=$1`
+        const values = [email];
+        client.query(query, values, async (err, result) => {
+            if(err)
+            {
+                console.log(err.stack);
+            } else {
+                // Server shouldn't crash after first 'if' statement double check this behaviour
+                if(result.rowCount == 0){
+                    res.json({status: 'error', error: 'Invalid or expired password reset link'})
+                } 
+
+                const isValid = await bcrypt.compare(token, result.rows[0].token);
+
+                if(!isValid){
+                    res.json({status: 'error', error: 'Invalid or expired password reset link'})
+                }
+                else {
+                    // Here we need to update password with new value and then return status ok
+                    const hashedPassword = await bcrypt.hash(newPassword, 10);
+                    const query = `UPDATE users SET password=$1 WHERE email=$2`
+                    const values = [hashedPassword, email]
+                    client.query(query, values, (err, result) => {
+                        if(err){
+                            console.log(err.stack)
+                        } else {
+                            res.json({status: 'ok', result: result});
+                        }
+                    })
+                }
+            }
+        })
+    } catch (error) {
+            return res.json({status: 'error', error: error})
+        }
 })
