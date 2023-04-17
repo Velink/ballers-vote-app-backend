@@ -53,37 +53,49 @@ app.use('/', express.static(path.join(__dirname, 'static')))
 app.use(express.json());
 app.use(cors(corsOptions));
 
-app.post('/api/create', async (req, res) => {
+
+// CREATE VOTING LOBBY
+app.post('/api/create', async (req, result) => {
     console.log('this is what we get', req.body);
     let playerArray = req.body.array;
     let password = req.body.password;
     console.log(playerArray);
     console.log(password);
 
-    const text2 = `UPDATE ratings SET current_week=false WHERE current_week=true`;
-    client.query(text2, (err, res) => {
-        if(err){
-            console.log(err.stack);
-        } else {
-            console.log(res);
+    // FIRST CHECK IF PASSWORD EXISTS 
+    // YES - return error to admin password - exists 
+    // NO - proceed with the queries below 
+    const text3 = `SELECT * FROM ratings WHERE password=$1`;
+    const values3 = [password];
+    client.query(text3, values3, (err, res) => {
+        if(res.rowCount != 0){
+            result.json({status: "error", error: "Password already exists!"})
+        } else { 
+                // UPDATE FLAG OF WHAT IS CURRENT WEEK 
+                const text2 = `UPDATE ratings SET current_week=false WHERE current_week=true`;
+                client.query(text2, (err, res) => {
+                    if(err){
+                        console.log(err.stack);
+                    } else {
+                        console.log(res);
+                    }
+                })
+
+                // CREATE POSTGRESQL TABLE - with Name values filled in and ratings empty 
+                for (let i = 0; i < playerArray.length; i++) {
+                    const text = 'INSERT INTO ratings(name, password) VALUES($1, $2) RETURNING *'
+                    const values = [playerArray[i], password]
+                    client.query(text, values, (err, res) => {
+                        if(err){
+                            console.log(err.stack);
+                        } else {
+                            console.log(res.rows[0]);
+                        }
+                    })        
+                }
+                result.json({ status: 'ok' })
         }
     })
-
-    //POSTGRES ATTEMPTS 
-    // CREATE POSTGRESQL TABLE - with Name values filled in and ratings empty 
-    for (let i = 0; i < playerArray.length; i++) {
-        const text = 'INSERT INTO ratings(name, password) VALUES($1, $2) RETURNING *'
-        const values = [playerArray[i], password]
-        client.query(text, values, (err, res) => {
-            if(err){
-                console.log(err.stack);
-            } else {
-                console.log(res.rows[0]);
-            }
-        })        
-    }
-
-    res.json({ status: 'ok' })
 })
 
 // Unique Poll Room - for 14 players to vote
@@ -525,6 +537,7 @@ app.post('/api/change-password', async (req, res) => {
     }
 })
 
+// ADMIN LOGIN 
 app.post('/api/login', async (req,res) => {
 
     const { username, password} = req.body;
@@ -552,6 +565,7 @@ app.post('/api/login', async (req,res) => {
     })
 })
 
+// ADMIN REGISTRATION 
 app.post('/api/register', async (req, res) => {
     const {username, password: plainTextPassword } = req.body
 
